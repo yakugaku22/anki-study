@@ -11,6 +11,7 @@
     --amber:#FCE9B8; --amber-line:#E9C767;
   }
   *{ box-sizing:border-box; }
+  html.gate body > .wrap{ visibility:hidden; }  /* ログイン判定が済むまで本体を隠す */
   body{
     margin:0; background:var(--paper); color:var(--ink);
     font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",Meiryo,system-ui,sans-serif;
@@ -26,10 +27,9 @@
   .seg button{ border:0; background:transparent; color:var(--muted); font-weight:700; font-size:13px;
     padding:7px 14px; border-radius:8px; cursor:pointer; font-family:inherit; }
   .seg button.on{ background:var(--teal); color:#fff; }
-  .authbtn{ display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--card);
+  .acct{ display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--card);
     border-radius:999px; padding:4px 10px 4px 6px; cursor:pointer; font-family:inherit; font-weight:700; font-size:13px; color:var(--ink); }
-  .authbtn.out{ padding:7px 13px; }
-  .authbtn:hover{ border-color:var(--teal); color:var(--teal); }
+  .acct:hover{ border-color:var(--teal); color:var(--teal); }
   .avatar{ width:26px; height:26px; border-radius:50%; object-fit:cover; background:var(--teal-soft); }
 
   nav.tabs{ display:flex; align-items:center; gap:6px; overflow-x:auto; padding:2px 0 8px; -webkit-overflow-scrolling:touch; }
@@ -77,6 +77,10 @@
 <!-- Firebase compat SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+  // ログイン判定が済むまで本体を隠す（未ログインなら login.html へ飛ばすため）
+  document.documentElement.classList.add("gate");
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -102,9 +106,7 @@
 </div>
 
 <script>
-/* ===== ① ここに Firebase の設定を貼る =====
-   Firebaseコンソール → プロジェクトの設定(歯車) → 全般 → マイアプリ → Webアプリ で表示される
-   firebaseConfig の中身を、下の { ... } にそのまま置き換えてください。 */
+/* ===== ① login.html と同じ firebaseConfig を貼ってください ===== */
 const firebaseConfig = {
   apiKey: "AIzaSyDq93IcZIgKTTgKuMQOcyY9SQF-tPaNNY0",
   authDomain: "anki-study-143aa.firebaseapp.com",
@@ -114,7 +116,7 @@ const firebaseConfig = {
   appId: "1:324035910852:web:7a3819b145135f3790bd91",
   measurementId: "G-SD7QW8FPKD"
 };
-/* ========================================= */
+/* =========================================================== */
 
 /* ---------- data ---------- */
 const LS = "anki-study-v1";
@@ -148,43 +150,49 @@ function scheduleSave(){
   saveTimer = setTimeout(() => persist(true), 500);
 }
 
-/* ---------- auth ---------- */
+/* ---------- auth gate ---------- */
 function initFirebase(){
   if(!firebaseConfig.apiKey || firebaseConfig.apiKey === "ここに貼る"){
     console.warn("Firebase設定が未入力です。firebaseConfig を貼ってください。");
+    document.documentElement.classList.remove("gate"); // 設定前でもアプリは触れるように
     renderAuth(); return;
   }
   try{
     firebase.initializeApp(firebaseConfig);
-    firebase.auth().onAuthStateChanged(u => { currentUser = u; renderAuth(); });
-  }catch(e){ console.warn("Firebase初期化エラー:", e); renderAuth(); }
+    firebase.auth().onAuthStateChanged(function(user){
+      if(!user){
+        // 未ログイン → ログイン画面へ
+        location.replace("login.html");
+        return;
+      }
+      currentUser = user;
+      document.documentElement.classList.remove("gate"); // 本体を表示
+      renderAuth();
+    });
+  }catch(e){
+    console.warn("Firebase初期化エラー:", e);
+    document.documentElement.classList.remove("gate");
+    renderAuth();
+  }
 }
-function login(){
-  if(!firebase.apps.length){ alert("先に firebaseConfig を貼ってデプロイしてください"); return; }
-  const provider = new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(provider).catch(() => {
-    // ポップアップがブロックされた/iOS等 → リダイレクト方式にフォールバック
-    firebase.auth().signInWithRedirect(provider);
-  });
+function logout(){
+  if(firebase.apps.length){
+    firebase.auth().signOut().then(function(){ location.replace("login.html"); });
+  }
 }
-function logout(){ if(firebase.apps.length) firebase.auth().signOut(); }
-
 function renderAuth(){
   const a = document.getElementById("authArea"); if(!a) return; a.innerHTML = "";
-  if(!currentUser){
-    const b = document.createElement("button"); b.className = "authbtn out"; b.textContent = "ログイン"; b.onclick = login;
-    a.appendChild(b);
-  } else {
-    const b = document.createElement("button"); b.className = "authbtn";
-    b.onclick = () => { if(confirm("ログアウトしますか？")) logout(); };
-    if(currentUser.photoURL){
-      const img = document.createElement("img"); img.className = "avatar";
-      img.src = currentUser.photoURL; img.referrerPolicy = "no-referrer"; b.appendChild(img);
-    }
-    const sp = document.createElement("span");
-    sp.textContent = currentUser.displayName ? currentUser.displayName.split(" ")[0] : "ログイン中";
-    b.appendChild(sp); a.appendChild(b);
+  if(!currentUser) return; // 未ログイン時はここに来ない想定（gateでlogin.htmlへ）
+  const b = document.createElement("button"); b.className = "acct";
+  b.title = "クリックでログアウト";
+  b.onclick = function(){ if(confirm("ログアウトしますか？")) logout(); };
+  if(currentUser.photoURL){
+    const img = document.createElement("img"); img.className = "avatar";
+    img.src = currentUser.photoURL; img.referrerPolicy = "no-referrer"; b.appendChild(img);
   }
+  const sp = document.createElement("span");
+  sp.textContent = currentUser.displayName ? currentUser.displayName.split(" ")[0] : "ログイン中";
+  b.appendChild(sp); a.appendChild(b);
 }
 
 /* ---------- actions ---------- */
