@@ -17,14 +17,20 @@
   }
   .wrap{ max-width:920px; margin:0 auto; padding:14px 12px 48px; }
 
-  header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .brand{ display:flex; align-items:baseline; gap:8px; }
   .brand h1{ font-size:17px; font-weight:800; letter-spacing:.02em; margin:0; }
   .brand span{ font-size:11px; color:var(--muted); font-weight:600; letter-spacing:.06em; }
+  .hgroup{ display:flex; align-items:center; gap:8px; }
   .seg{ display:inline-flex; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:3px; }
   .seg button{ border:0; background:transparent; color:var(--muted); font-weight:700; font-size:13px;
     padding:7px 14px; border-radius:8px; cursor:pointer; font-family:inherit; }
   .seg button.on{ background:var(--teal); color:#fff; }
+  .authbtn{ display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--card);
+    border-radius:999px; padding:4px 10px 4px 6px; cursor:pointer; font-family:inherit; font-weight:700; font-size:13px; color:var(--ink); }
+  .authbtn.out{ padding:7px 13px; }
+  .authbtn:hover{ border-color:var(--teal); color:var(--teal); }
+  .avatar{ width:26px; height:26px; border-radius:50%; object-fit:cover; background:var(--teal-soft); }
 
   nav.tabs{ display:flex; align-items:center; gap:6px; overflow-x:auto; padding:2px 0 8px; -webkit-overflow-scrolling:touch; }
   nav.tabs::-webkit-scrollbar{ height:0; }
@@ -67,14 +73,21 @@
   .blank p{ color:var(--muted); font-size:14px; margin:0 0 16px; }
   .empty{ color:var(--muted); font-size:14px; padding:6px 2px; }
 </style>
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="brand"><h1>暗記シート</h1><span id="subjName">—</span></div>
-    <div class="seg">
-      <button id="mEdit" class="on" onclick="setMode('edit')">編集</button>
-      <button id="mStudy" onclick="setMode('study')">暗記</button>
+    <div class="hgroup">
+      <div class="seg">
+        <button id="mEdit" class="on" onclick="setMode('edit')">編集</button>
+        <button id="mStudy" onclick="setMode('study')">暗記</button>
+      </div>
+      <div id="authArea"></div>
     </div>
   </header>
 
@@ -89,6 +102,20 @@
 </div>
 
 <script>
+/* ===== ① ここに Firebase の設定を貼る =====
+   Firebaseコンソール → プロジェクトの設定(歯車) → 全般 → マイアプリ → Webアプリ で表示される
+   firebaseConfig の中身を、下の { ... } にそのまま置き換えてください。 */
+const firebaseConfig = {
+  apiKey: "AIzaSyDq93IcZIgKTTgKuMQOcyY9SQF-tPaNNY0",
+  authDomain: "anki-study-143aa.firebaseapp.com",
+  projectId: "anki-study-143aa",
+  storageBucket: "anki-study-143aa.firebasestorage.app",
+  messagingSenderId: "324035910852",
+  appId: "1:324035910852:web:7a3819b145135f3790bd91",
+  measurementId: "G-SD7QW8FPKD"
+};
+/* ========================================= */
+
 /* ---------- data ---------- */
 const LS = "anki-study-v1";
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -107,6 +134,7 @@ let curC = (state.subjects[0] && state.subjects[0].categories[0]) ? state.subjec
 let mode = "edit";
 let shown = {};
 let saveTimer = null;
+let currentUser = null;
 
 const getS = () => state.subjects.find(s => s.id === curS);
 const getC = () => { const s = getS(); return s ? s.categories.find(c => c.id === curC) : null; };
@@ -118,6 +146,45 @@ function persist(flash){
 function scheduleSave(){
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => persist(true), 500);
+}
+
+/* ---------- auth ---------- */
+function initFirebase(){
+  if(!firebaseConfig.apiKey || firebaseConfig.apiKey === "ここに貼る"){
+    console.warn("Firebase設定が未入力です。firebaseConfig を貼ってください。");
+    renderAuth(); return;
+  }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    firebase.auth().onAuthStateChanged(u => { currentUser = u; renderAuth(); });
+  }catch(e){ console.warn("Firebase初期化エラー:", e); renderAuth(); }
+}
+function login(){
+  if(!firebase.apps.length){ alert("先に firebaseConfig を貼ってデプロイしてください"); return; }
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(() => {
+    // ポップアップがブロックされた/iOS等 → リダイレクト方式にフォールバック
+    firebase.auth().signInWithRedirect(provider);
+  });
+}
+function logout(){ if(firebase.apps.length) firebase.auth().signOut(); }
+
+function renderAuth(){
+  const a = document.getElementById("authArea"); if(!a) return; a.innerHTML = "";
+  if(!currentUser){
+    const b = document.createElement("button"); b.className = "authbtn out"; b.textContent = "ログイン"; b.onclick = login;
+    a.appendChild(b);
+  } else {
+    const b = document.createElement("button"); b.className = "authbtn";
+    b.onclick = () => { if(confirm("ログアウトしますか？")) logout(); };
+    if(currentUser.photoURL){
+      const img = document.createElement("img"); img.className = "avatar";
+      img.src = currentUser.photoURL; img.referrerPolicy = "no-referrer"; b.appendChild(img);
+    }
+    const sp = document.createElement("span");
+    sp.textContent = currentUser.displayName ? currentUser.displayName.split(" ")[0] : "ログイン中";
+    b.appendChild(sp); a.appendChild(b);
+  }
 }
 
 /* ---------- actions ---------- */
@@ -189,7 +256,6 @@ function render(){
   document.getElementById("mEdit").className = mode === "edit" ? "on" : "";
   document.getElementById("mStudy").className = mode === "study" ? "on" : "";
 
-  // subject tabs
   const st = document.getElementById("subjectTabs"); st.innerHTML = "";
   state.subjects.forEach(sub => {
     const b = document.createElement("button");
@@ -293,6 +359,7 @@ function mkBtn(label, fn){ const b = document.createElement("button"); b.classNa
 function mkIcon(label, fn){ const b = document.createElement("button"); b.className = "iconbtn"; b.textContent = label; b.onclick = fn; return b; }
 
 render();
+initFirebase();
 </script>
 </body>
 </html>
