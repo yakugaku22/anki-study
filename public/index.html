@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>暗記シート</title>
+<style>
+  :root{
+    --paper:#F6F7F9; --card:#FFFFFF; --ink:#1C2530; --muted:#6B7684;
+    --line:#E4E8EE; --teal:#0F766E; --teal-soft:#E7F1EF; --cover:#2C3742;
+    --amber:#FCE9B8; --amber-line:#E9C767;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",Meiryo,system-ui,sans-serif;
+  }
+  .wrap{ max-width:920px; margin:0 auto; padding:14px 12px 48px; }
+
+  header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  .brand{ display:flex; align-items:baseline; gap:8px; }
+  .brand h1{ font-size:17px; font-weight:800; letter-spacing:.02em; margin:0; }
+  .brand span{ font-size:11px; color:var(--muted); font-weight:600; letter-spacing:.06em; }
+  .seg{ display:inline-flex; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:3px; }
+  .seg button{ border:0; background:transparent; color:var(--muted); font-weight:700; font-size:13px;
+    padding:7px 14px; border-radius:8px; cursor:pointer; font-family:inherit; }
+  .seg button.on{ background:var(--teal); color:#fff; }
+
+  nav.tabs{ display:flex; align-items:center; gap:6px; overflow-x:auto; padding:2px 0 8px; -webkit-overflow-scrolling:touch; }
+  nav.tabs::-webkit-scrollbar{ height:0; }
+  .tab{ flex:0 0 auto; border:1px solid var(--line); background:var(--card); color:var(--ink);
+    font-family:inherit; font-weight:700; font-size:13px; padding:7px 13px; border-radius:999px; cursor:pointer; white-space:nowrap; }
+  .tab.on{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  nav.cats .tab.on{ background:var(--teal); border-color:var(--teal); }
+  .iconbtn{ flex:0 0 auto; border:1px dashed var(--line); background:transparent; color:var(--muted);
+    font-family:inherit; font-weight:800; font-size:14px; width:34px; height:34px; border-radius:999px; cursor:pointer; }
+  .iconbtn:hover{ color:var(--teal); border-color:var(--teal); }
+  .row-label{ font-size:11px; color:var(--muted); font-weight:700; letter-spacing:.08em; margin:6px 2px 2px; }
+
+  .bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0 10px; }
+  .btn{ border:1px solid var(--line); background:var(--card); color:var(--ink); font-family:inherit;
+    font-weight:700; font-size:13px; padding:8px 12px; border-radius:9px; cursor:pointer; transition:.12s; }
+  .btn:hover{ border-color:var(--teal); color:var(--teal); }
+  .btn.primary{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  .btn.primary:hover{ filter:brightness(1.06); color:#fff; }
+  .grow{ flex:1; }
+  .saved{ font-size:12px; color:var(--muted); }
+  .progress{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--cover); }
+
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; }
+  textarea.editor{ width:100%; min-height:340px; border:0; resize:vertical; padding:16px; font-size:15px;
+    line-height:1.9; font-family:inherit; color:var(--ink); background:transparent; border-radius:14px; outline:none; }
+  .hint{ font-size:12px; color:var(--muted); margin-top:8px; line-height:1.7; }
+  .hint code{ background:var(--teal-soft); color:var(--teal); padding:1px 6px; border-radius:5px; font-weight:700; font-size:12px; }
+
+  .doc{ padding:18px 18px 22px; font-size:15px; line-height:2.05; }
+  .doc .h2{ font-size:15px; font-weight:800; color:var(--teal); margin:22px 0 8px; padding-bottom:6px; border-bottom:2px solid var(--teal-soft); }
+  .doc .h2:first-child{ margin-top:2px; }
+  .doc .line{ margin:2px 0; }
+  .mark{ display:inline-block; border-radius:6px; cursor:pointer; user-select:none; padding:1px 8px; margin:0 1px; transition:background .15s,color .15s; }
+  .mark.hide{ background:var(--cover); color:transparent; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06); }
+  .mark.hide:hover{ background:#39485A; }
+  .mark.show{ background:var(--amber); color:var(--ink); box-shadow:inset 0 -2px 0 var(--amber-line); }
+
+  .blank{ text-align:center; padding:40px 18px; }
+  .blank p{ color:var(--muted); font-size:14px; margin:0 0 16px; }
+  .empty{ color:var(--muted); font-size:14px; padding:6px 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><h1>暗記シート</h1><span id="subjName">—</span></div>
+    <div class="seg">
+      <button id="mEdit" class="on" onclick="setMode('edit')">編集</button>
+      <button id="mStudy" onclick="setMode('study')">暗記</button>
+    </div>
+  </header>
+
+  <div class="row-label">科目</div>
+  <nav class="tabs subjects" id="subjectTabs"></nav>
+
+  <div class="row-label">分野</div>
+  <nav class="tabs cats" id="catTabs"></nav>
+
+  <div class="bar" id="toolbar"></div>
+  <main id="main"></main>
+</div>
+
+<script>
+/* ---------- data ---------- */
+const LS = "anki-study-v1";
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+function load(){
+  try{
+    const r = JSON.parse(localStorage.getItem(LS));
+    if(r && Array.isArray(r.subjects)) return r;
+  }catch(e){}
+  return { subjects: [] };
+}
+
+let state = load();
+let curS = state.subjects[0] ? state.subjects[0].id : null;
+let curC = (state.subjects[0] && state.subjects[0].categories[0]) ? state.subjects[0].categories[0].id : null;
+let mode = "edit";
+let shown = {};
+let saveTimer = null;
+
+const getS = () => state.subjects.find(s => s.id === curS);
+const getC = () => { const s = getS(); return s ? s.categories.find(c => c.id === curC) : null; };
+
+function persist(flash){
+  localStorage.setItem(LS, JSON.stringify(state));
+  if(flash){ const el = document.getElementById("savedTag"); if(el) el.textContent = "保存済み"; }
+}
+function scheduleSave(){
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => persist(true), 500);
+}
+
+/* ---------- actions ---------- */
+function selectSubject(id){ curS = id; const s = getS(); curC = s.categories[0] ? s.categories[0].id : null; shown = {}; render(); }
+function selectCat(id){ curC = id; shown = {}; render(); }
+function setMode(m){ mode = m; shown = {}; render(); }
+
+function addSubject(){
+  const name = prompt("科目名を入力（勉強したい内容）"); if(!name) return;
+  const c = { id: uid(), name: "分野1", notes: "" };
+  const s = { id: uid(), name: name.trim(), categories: [c] };
+  state.subjects.push(s); curS = s.id; curC = c.id; persist(); render();
+}
+function addCategory(){
+  if(!getS()) return;
+  const name = prompt("分野名を入力"); if(!name) return;
+  const c = { id: uid(), name: name.trim(), notes: "" };
+  getS().categories.push(c); curC = c.id; persist(); render();
+}
+function renameSubject(){
+  const s = getS(); if(!s) return; const name = prompt("科目名を変更", s.name); if(!name) return;
+  s.name = name.trim(); persist(); render();
+}
+function renameCat(){
+  const c = getC(); if(!c) return; const name = prompt("分野名を変更", c.name); if(!name) return;
+  c.name = name.trim(); persist(); render();
+}
+function deleteSubject(){
+  const s = getS(); if(!s) return;
+  if(!confirm(`科目「${s.name}」を削除しますか？`)) return;
+  state.subjects = state.subjects.filter(x => x.id !== curS);
+  curS = state.subjects[0] ? state.subjects[0].id : null;
+  curC = curS ? getS().categories[0].id : null;
+  persist(); render();
+}
+function deleteCat(){
+  const s = getS(); if(!s) return;
+  if(s.categories.length <= 1){ alert("最後の分野は削除できません（科目ごと消す場合は科目の🗑を使ってください）"); return; }
+  const c = getC(); if(!confirm(`分野「${c.name}」を削除しますか？`)) return;
+  s.categories = s.categories.filter(x => x.id !== curC);
+  curC = s.categories[0].id; persist(); render();
+}
+
+function wrapSelection(){
+  const ta = document.getElementById("editor"); if(!ta) return;
+  const a = ta.selectionStart, b = ta.selectionEnd; if(a === b) return;
+  const v = ta.value;
+  getC().notes = v.slice(0, a) + "==" + v.slice(a, b) + "==" + v.slice(b);
+  scheduleSave(); render();
+  requestAnimationFrame(() => { const t = document.getElementById("editor"); t.focus(); t.setSelectionRange(a, b + 4); });
+}
+
+/* ---------- parse ---------- */
+function parseLine(text){
+  const out = []; const re = /==(.+?)==/g; let last = 0, m, i = 0;
+  while((m = re.exec(text)) !== null){
+    if(m.index > last) out.push({ t:"txt", v:text.slice(last, m.index), k:i++ });
+    out.push({ t:"mark", v:m[1], k:i++ });
+    last = re.lastIndex;
+  }
+  if(last < text.length) out.push({ t:"txt", v:text.slice(last), k:i++ });
+  return out;
+}
+
+/* ---------- render ---------- */
+function render(){
+  const s = getS();
+  document.getElementById("subjName").textContent = s ? s.name : "—";
+  document.getElementById("mEdit").className = mode === "edit" ? "on" : "";
+  document.getElementById("mStudy").className = mode === "study" ? "on" : "";
+
+  // subject tabs
+  const st = document.getElementById("subjectTabs"); st.innerHTML = "";
+  state.subjects.forEach(sub => {
+    const b = document.createElement("button");
+    b.className = "tab" + (sub.id === curS ? " on" : "");
+    b.textContent = sub.name; b.onclick = () => selectSubject(sub.id);
+    st.appendChild(b);
+  });
+  st.appendChild(mkIcon("＋", addSubject));
+  if(s){ st.appendChild(mkIcon("✎", renameSubject)); st.appendChild(mkIcon("🗑", deleteSubject)); }
+
+  const ct = document.getElementById("catTabs"); ct.innerHTML = "";
+  const bar = document.getElementById("toolbar"); bar.innerHTML = "";
+  const main = document.getElementById("main"); main.innerHTML = "";
+
+  if(!s){
+    const blank = document.createElement("div"); blank.className = "card blank";
+    const p = document.createElement("p"); p.textContent = "まだ科目がありません。勉強したい内容を追加してください。";
+    const btn = mkBtn("最初の科目を追加", addSubject); btn.className = "btn primary";
+    blank.appendChild(p); blank.appendChild(btn); main.appendChild(blank);
+    return;
+  }
+
+  s.categories.forEach(cat => {
+    const b = document.createElement("button");
+    b.className = "tab" + (cat.id === curC ? " on" : "");
+    b.textContent = cat.name; b.onclick = () => selectCat(cat.id);
+    ct.appendChild(b);
+  });
+  ct.appendChild(mkIcon("＋", addCategory));
+  ct.appendChild(mkIcon("✎", renameCat));
+  ct.appendChild(mkIcon("🗑", deleteCat));
+
+  const cat = getC();
+
+  if(mode === "edit"){
+    bar.appendChild(mkBtn("選択を隠す", wrapSelection));
+    const grow = document.createElement("div"); grow.className = "grow"; bar.appendChild(grow);
+    const tag = document.createElement("span"); tag.className = "saved"; tag.id = "savedTag"; tag.textContent = "保存済み"; bar.appendChild(tag);
+
+    const card = document.createElement("div"); card.className = "card";
+    const ta = document.createElement("textarea"); ta.className = "editor"; ta.id = "editor";
+    ta.spellcheck = false; ta.value = cat ? cat.notes : "";
+    ta.placeholder = "ここに覚えたい内容を入力…";
+    ta.oninput = () => { if(getC()){ getC().notes = ta.value; scheduleSave(); } };
+    card.appendChild(ta); main.appendChild(card);
+
+    const hint = document.createElement("div"); hint.className = "hint";
+    hint.innerHTML = '隠したい語句を <code>==語句==</code> で囲む（選択して「選択を隠す」でもOK）。行頭 <code># </code> で見出し。自動保存されます。';
+    main.appendChild(hint);
+  } else {
+    bar.appendChild(mkBtn("全部表示 / 隠す", toggleAll));
+    const grow = document.createElement("div"); grow.className = "grow"; bar.appendChild(grow);
+
+    const lines = (cat ? cat.notes : "").split("\n");
+    let gi = 0;
+    const doc = document.createElement("div"); doc.className = "card doc";
+    lines.forEach(raw => {
+      if(raw.startsWith("# ")){
+        const h = document.createElement("div"); h.className = "h2"; h.textContent = raw.slice(2); doc.appendChild(h); return;
+      }
+      const line = document.createElement("div"); line.className = "line";
+      const parts = parseLine(raw);
+      if(parts.length === 0){ line.innerHTML = "&nbsp;"; }
+      parts.forEach(p => {
+        if(p.t === "txt"){ line.appendChild(document.createTextNode(p.v)); }
+        else{
+          const idx = gi++;
+          const sp = document.createElement("span");
+          sp.className = "mark " + (shown[idx] ? "show" : "hide");
+          sp.textContent = p.v;
+          sp.onclick = () => { shown[idx] = !shown[idx]; render(); };
+          line.appendChild(sp);
+        }
+      });
+      doc.appendChild(line);
+    });
+    if(gi === 0){
+      const e = document.createElement("div"); e.className = "empty";
+      e.textContent = "隠し語句がありません。編集モードで ==語句== を追加してください。";
+      doc.appendChild(e);
+    }
+    main.appendChild(doc);
+
+    const prog = document.createElement("div"); prog.className = "progress";
+    const shownCount = Object.values(shown).filter(Boolean).length;
+    prog.innerHTML = '<span class="dot"></span>表示 ' + shownCount + ' / ' + gi;
+    bar.appendChild(prog);
+  }
+}
+
+function toggleAll(){
+  const cat = getC(); if(!cat) return;
+  let total = 0; const re = /==(.+?)==/g; while(re.exec(cat.notes) !== null) total++;
+  const allShown = Object.values(shown).filter(Boolean).length === total && total > 0;
+  shown = {};
+  if(!allShown){ for(let i=0;i<total;i++) shown[i] = true; }
+  render();
+}
+
+function mkBtn(label, fn){ const b = document.createElement("button"); b.className = "btn"; b.textContent = label; b.onclick = fn; return b; }
+function mkIcon(label, fn){ const b = document.createElement("button"); b.className = "iconbtn"; b.textContent = label; b.onclick = fn; return b; }
+
+render();
+</script>
+</body>
+</html>
