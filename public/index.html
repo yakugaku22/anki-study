@@ -11,13 +11,14 @@
     --amber:#FCE9B8; --amber-line:#E9C767;
   }
   *{ box-sizing:border-box; }
+  html.gate body > .wrap{ visibility:hidden; }
   body{
     margin:0; background:var(--paper); color:var(--ink);
     font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",Meiryo,system-ui,sans-serif;
   }
   .wrap{ max-width:920px; margin:0 auto; padding:14px 12px 48px; }
 
-  header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
   .brand{ display:flex; align-items:baseline; gap:8px; }
   .brand h1{ font-size:17px; font-weight:800; letter-spacing:.02em; margin:0; }
   .brand span{ font-size:11px; color:var(--muted); font-weight:600; letter-spacing:.06em; }
@@ -26,11 +27,27 @@
   .seg button{ border:0; background:transparent; color:var(--muted); font-weight:700; font-size:13px;
     padding:7px 14px; border-radius:8px; cursor:pointer; font-family:inherit; }
   .seg button.on{ background:var(--teal); color:#fff; }
-  .authbtn{ display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--card);
+  .acct{ display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--card);
     border-radius:999px; padding:4px 10px 4px 6px; cursor:pointer; font-family:inherit; font-weight:700; font-size:13px; color:var(--ink); }
-  .authbtn.out{ padding:7px 13px; }
-  .authbtn:hover{ border-color:var(--teal); color:var(--teal); }
+  .acct:hover{ border-color:var(--teal); color:var(--teal); }
   .avatar{ width:26px; height:26px; border-radius:50%; object-fit:cover; background:var(--teal-soft); }
+
+  /* search */
+  .searchbar{ position:relative; margin-bottom:10px; }
+  .searchbar input{ width:100%; border:1px solid var(--line); background:var(--card); border-radius:11px;
+    padding:11px 38px 11px 38px; font-size:14px; font-family:inherit; color:var(--ink); outline:none; }
+  .searchbar input:focus{ border-color:var(--teal); }
+  .searchbar .mag{ position:absolute; left:13px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:15px; }
+  .searchbar .clr{ position:absolute; right:8px; top:50%; transform:translateY(-50%); border:0; background:transparent;
+    color:var(--muted); font-size:16px; cursor:pointer; padding:6px; line-height:1; }
+  .results{ background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden; margin-bottom:12px; }
+  .ritem{ padding:12px 14px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .ritem:last-child{ border-bottom:0; }
+  .ritem:hover{ background:var(--teal-soft); }
+  .rpath{ font-size:12px; color:var(--teal); font-weight:700; margin-bottom:3px; }
+  .rsnip{ font-size:13px; color:var(--muted); line-height:1.6; white-space:pre-wrap; }
+  .rsnip mark{ background:var(--amber); color:var(--ink); border-radius:3px; padding:0 2px; }
+  .rnone{ padding:16px 14px; font-size:13px; color:var(--muted); }
 
   nav.tabs{ display:flex; align-items:center; gap:6px; overflow-x:auto; padding:2px 0 8px; -webkit-overflow-scrolling:touch; }
   nav.tabs::-webkit-scrollbar{ height:0; }
@@ -50,7 +67,12 @@
   .btn.primary{ background:var(--teal); color:#fff; border-color:var(--teal); }
   .btn.primary:hover{ filter:brightness(1.06); color:#fff; }
   .grow{ flex:1; }
-  .saved{ font-size:12px; color:var(--muted); }
+  .saved{ font-size:12px; color:var(--muted); display:flex; align-items:center; gap:5px; }
+  .saved .sdot{ width:7px; height:7px; border-radius:50%; background:#bbb; }
+  .saved.ok .sdot{ background:var(--teal); }
+  .saved.saving .sdot{ background:var(--amber-line); }
+  .saved.err{ color:#B4443A; }
+  .saved.err .sdot{ background:#B4443A; }
   .progress{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); }
   .dot{ width:8px; height:8px; border-radius:50%; background:var(--cover); }
 
@@ -77,6 +99,10 @@
 <!-- Firebase compat SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  document.documentElement.classList.add("gate");
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -91,20 +117,27 @@
     </div>
   </header>
 
-  <div class="row-label">科目</div>
-  <nav class="tabs subjects" id="subjectTabs"></nav>
+  <div class="searchbar">
+    <span class="mag">🔍</span>
+    <input id="searchInput" placeholder="書いた内容を検索（全科目・全分野）" oninput="onSearch(this.value)" />
+    <button class="clr" id="searchClr" onclick="clearSearch()" style="display:none">✕</button>
+  </div>
+  <div id="results"></div>
 
-  <div class="row-label">分野</div>
-  <nav class="tabs cats" id="catTabs"></nav>
+  <div id="browse">
+    <div class="row-label">科目</div>
+    <nav class="tabs subjects" id="subjectTabs"></nav>
 
-  <div class="bar" id="toolbar"></div>
-  <main id="main"></main>
+    <div class="row-label">分野</div>
+    <nav class="tabs cats" id="catTabs"></nav>
+
+    <div class="bar" id="toolbar"></div>
+    <main id="main"></main>
+  </div>
 </div>
 
 <script>
-/* ===== ① ここに Firebase の設定を貼る =====
-   Firebaseコンソール → プロジェクトの設定(歯車) → 全般 → マイアプリ → Webアプリ で表示される
-   firebaseConfig の中身を、下の { ... } にそのまま置き換えてください。 */
+/* ===== ① login.html と同じ firebaseConfig を貼ってください ===== */
 const firebaseConfig = {
   apiKey: "AIzaSyDq93IcZIgKTTgKuMQOcyY9SQF-tPaNNY0",
   authDomain: "anki-study-143aa.firebaseapp.com",
@@ -114,77 +147,88 @@ const firebaseConfig = {
   appId: "1:324035910852:web:7a3819b145135f3790bd91",
   measurementId: "G-SD7QW8FPKD"
 };
-/* ========================================= */
+/* =========================================================== */
 
 /* ---------- data ---------- */
-const LS = "anki-study-v1";
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-function load(){
-  try{
-    const r = JSON.parse(localStorage.getItem(LS));
-    if(r && Array.isArray(r.subjects)) return r;
-  }catch(e){}
-  return { subjects: [] };
-}
-
-let state = load();
-let curS = state.subjects[0] ? state.subjects[0].id : null;
-let curC = (state.subjects[0] && state.subjects[0].categories[0]) ? state.subjects[0].categories[0].id : null;
+let state = { subjects: [] };
+let curS = null;
+let curC = null;
 let mode = "edit";
 let shown = {};
 let saveTimer = null;
 let currentUser = null;
+let db = null;
+let dataLoaded = false;
+let searchQuery = "";
 
 const getS = () => state.subjects.find(s => s.id === curS);
 const getC = () => { const s = getS(); return s ? s.categories.find(c => c.id === curC) : null; };
 
-function persist(flash){
-  localStorage.setItem(LS, JSON.stringify(state));
-  if(flash){ const el = document.getElementById("savedTag"); if(el) el.textContent = "保存済み"; }
+/* ---------- save status ---------- */
+function setSaveStatus(kind){
+  const el = document.getElementById("savedTag"); if(!el) return;
+  el.className = "saved " + (kind || "");
+  const txt = { ok:"保存済み", saving:"保存中…", err:"保存エラー" }[kind] || "";
+  el.innerHTML = '<span class="sdot"></span>' + txt;
+}
+
+/* ---------- Firestore ---------- */
+function docRef(){ return db.collection("users").doc(currentUser.uid); }
+async function loadFromCloud(){
+  try{
+    const snap = await docRef().get();
+    if(snap.exists && snap.data() && Array.isArray(snap.data().subjects)){
+      state = { subjects: snap.data().subjects };
+    }else{ state = { subjects: [] }; }
+  }catch(e){ console.warn("読み込みエラー:", e); state = { subjects: [] }; }
+  curS = state.subjects[0] ? state.subjects[0].id : null;
+  curC = (curS && getS().categories[0]) ? getS().categories[0].id : null;
+  dataLoaded = true; render();
+}
+async function saveToCloud(){
+  if(!dataLoaded || !currentUser || !db) return;
+  setSaveStatus("saving");
+  try{ await docRef().set({ subjects: state.subjects, updatedAt: Date.now() }); setSaveStatus("ok"); }
+  catch(e){ console.warn("保存エラー:", e); setSaveStatus("err"); }
 }
 function scheduleSave(){
+  setSaveStatus("saving");
   if(saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => persist(true), 500);
+  saveTimer = setTimeout(saveToCloud, 800);
 }
 
 /* ---------- auth ---------- */
 function initFirebase(){
   if(!firebaseConfig.apiKey || firebaseConfig.apiKey === "ここに貼る"){
-    console.warn("Firebase設定が未入力です。firebaseConfig を貼ってください。");
-    renderAuth(); return;
+    console.warn("Firebase設定が未入力です。");
+    document.documentElement.classList.remove("gate"); dataLoaded = true; render(); return;
   }
   try{
     firebase.initializeApp(firebaseConfig);
-    firebase.auth().onAuthStateChanged(u => { currentUser = u; renderAuth(); });
-  }catch(e){ console.warn("Firebase初期化エラー:", e); renderAuth(); }
+    db = firebase.firestore();
+    firebase.auth().onAuthStateChanged(function(user){
+      if(!user){ location.replace("login.html"); return; }
+      currentUser = user;
+      document.documentElement.classList.remove("gate");
+      renderAuth(); loadFromCloud();
+    });
+  }catch(e){ console.warn("初期化エラー:", e); document.documentElement.classList.remove("gate"); dataLoaded = true; render(); }
 }
-function login(){
-  if(!firebase.apps.length){ alert("先に firebaseConfig を貼ってデプロイしてください"); return; }
-  const provider = new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(provider).catch(() => {
-    // ポップアップがブロックされた/iOS等 → リダイレクト方式にフォールバック
-    firebase.auth().signInWithRedirect(provider);
-  });
-}
-function logout(){ if(firebase.apps.length) firebase.auth().signOut(); }
-
+function logout(){ if(firebase.apps.length){ firebase.auth().signOut().then(function(){ location.replace("login.html"); }); } }
 function renderAuth(){
   const a = document.getElementById("authArea"); if(!a) return; a.innerHTML = "";
-  if(!currentUser){
-    const b = document.createElement("button"); b.className = "authbtn out"; b.textContent = "ログイン"; b.onclick = login;
-    a.appendChild(b);
-  } else {
-    const b = document.createElement("button"); b.className = "authbtn";
-    b.onclick = () => { if(confirm("ログアウトしますか？")) logout(); };
-    if(currentUser.photoURL){
-      const img = document.createElement("img"); img.className = "avatar";
-      img.src = currentUser.photoURL; img.referrerPolicy = "no-referrer"; b.appendChild(img);
-    }
-    const sp = document.createElement("span");
-    sp.textContent = currentUser.displayName ? currentUser.displayName.split(" ")[0] : "ログイン中";
-    b.appendChild(sp); a.appendChild(b);
+  if(!currentUser) return;
+  const b = document.createElement("button"); b.className = "acct"; b.title = "クリックでログアウト";
+  b.onclick = function(){ if(confirm("ログアウトしますか？")) logout(); };
+  if(currentUser.photoURL){
+    const img = document.createElement("img"); img.className = "avatar";
+    img.src = currentUser.photoURL; img.referrerPolicy = "no-referrer"; b.appendChild(img);
   }
+  const sp = document.createElement("span");
+  sp.textContent = currentUser.displayName ? currentUser.displayName.split(" ")[0] : "ログイン中";
+  b.appendChild(sp); a.appendChild(b);
 }
 
 /* ---------- actions ---------- */
@@ -196,21 +240,21 @@ function addSubject(){
   const name = prompt("科目名を入力（勉強したい内容）"); if(!name) return;
   const c = { id: uid(), name: "分野1", notes: "" };
   const s = { id: uid(), name: name.trim(), categories: [c] };
-  state.subjects.push(s); curS = s.id; curC = c.id; persist(); render();
+  state.subjects.push(s); curS = s.id; curC = c.id; scheduleSave(); render();
 }
 function addCategory(){
   if(!getS()) return;
   const name = prompt("分野名を入力"); if(!name) return;
   const c = { id: uid(), name: name.trim(), notes: "" };
-  getS().categories.push(c); curC = c.id; persist(); render();
+  getS().categories.push(c); curC = c.id; scheduleSave(); render();
 }
 function renameSubject(){
   const s = getS(); if(!s) return; const name = prompt("科目名を変更", s.name); if(!name) return;
-  s.name = name.trim(); persist(); render();
+  s.name = name.trim(); scheduleSave(); render();
 }
 function renameCat(){
   const c = getC(); if(!c) return; const name = prompt("分野名を変更", c.name); if(!name) return;
-  c.name = name.trim(); persist(); render();
+  c.name = name.trim(); scheduleSave(); render();
 }
 function deleteSubject(){
   const s = getS(); if(!s) return;
@@ -218,14 +262,14 @@ function deleteSubject(){
   state.subjects = state.subjects.filter(x => x.id !== curS);
   curS = state.subjects[0] ? state.subjects[0].id : null;
   curC = curS ? getS().categories[0].id : null;
-  persist(); render();
+  scheduleSave(); render();
 }
 function deleteCat(){
   const s = getS(); if(!s) return;
   if(s.categories.length <= 1){ alert("最後の分野は削除できません（科目ごと消す場合は科目の🗑を使ってください）"); return; }
   const c = getC(); if(!confirm(`分野「${c.name}」を削除しますか？`)) return;
   s.categories = s.categories.filter(x => x.id !== curC);
-  curC = s.categories[0].id; persist(); render();
+  curC = s.categories[0].id; scheduleSave(); render();
 }
 
 function wrapSelection(){
@@ -235,6 +279,82 @@ function wrapSelection(){
   getC().notes = v.slice(0, a) + "==" + v.slice(a, b) + "==" + v.slice(b);
   scheduleSave(); render();
   requestAnimationFrame(() => { const t = document.getElementById("editor"); t.focus(); t.setSelectionRange(a, b + 4); });
+}
+
+/* ---------- search ---------- */
+function onSearch(v){ searchQuery = v; renderSearch(); }
+function clearSearch(){ searchQuery = ""; document.getElementById("searchInput").value = ""; renderSearch(); }
+
+function jumpTo(sId, cId){
+  clearSearch();
+  curS = sId; curC = cId; shown = {}; mode = "study"; // ジャンプ後は暗記モードで表示
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function escHtml(s){ return s.replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c])); }
+
+// ヒット箇所の前後を抜き出してハイライト（==マーカーは外して検索・表示）
+function makeSnippet(text, q){
+  const plain = text.replace(/==(.+?)==/g, "$1");
+  const low = plain.toLowerCase(); const ql = q.toLowerCase();
+  const i = low.indexOf(ql); if(i < 0) return null;
+  const start = Math.max(0, i - 20);
+  const end = Math.min(plain.length, i + q.length + 40);
+  let snip = plain.slice(start, end);
+  snip = (start > 0 ? "…" : "") + snip + (end < plain.length ? "…" : "");
+  // ハイライト（HTMLエスケープしてから対象語を<mark>で包む）
+  const esc = escHtml(snip);
+  const escQ = escHtml(q);
+  const re = new RegExp(escQ.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  return esc.replace(re, m => "<mark>" + m + "</mark>");
+}
+
+function renderSearch(){
+  const clr = document.getElementById("searchClr");
+  const results = document.getElementById("results");
+  const browse = document.getElementById("browse");
+  const q = searchQuery.trim();
+
+  if(!q){
+    clr.style.display = "none";
+    results.innerHTML = "";
+    browse.style.display = "";
+    return;
+  }
+  clr.style.display = "";
+  browse.style.display = "none";  // 検索中は通常表示を隠す
+  results.innerHTML = "";
+
+  const box = document.createElement("div"); box.className = "results";
+  const ql = q.toLowerCase();
+  let hits = 0;
+
+  state.subjects.forEach(sub => {
+    sub.categories.forEach(cat => {
+      const hay = (sub.name + "\n" + cat.name + "\n" + cat.notes.replace(/==(.+?)==/g, "$1")).toLowerCase();
+      if(hay.indexOf(ql) < 0) return;
+      hits++;
+      const item = document.createElement("div"); item.className = "ritem";
+      item.onclick = () => jumpTo(sub.id, cat.id);
+      const path = document.createElement("div"); path.className = "rpath";
+      path.textContent = sub.name + " / " + cat.name;
+      item.appendChild(path);
+      const snipHtml = makeSnippet(cat.notes, q) || makeSnippet(sub.name + " " + cat.name, q);
+      if(snipHtml){
+        const snip = document.createElement("div"); snip.className = "rsnip"; snip.innerHTML = snipHtml;
+        item.appendChild(snip);
+      }
+      box.appendChild(item);
+    });
+  });
+
+  if(hits === 0){
+    const none = document.createElement("div"); none.className = "rnone";
+    none.textContent = "「" + q + "」に一致する内容は見つかりませんでした。";
+    box.appendChild(none);
+  }
+  results.appendChild(box);
 }
 
 /* ---------- parse ---------- */
@@ -251,6 +371,8 @@ function parseLine(text){
 
 /* ---------- render ---------- */
 function render(){
+  renderSearch();
+
   const s = getS();
   document.getElementById("subjName").textContent = s ? s.name : "—";
   document.getElementById("mEdit").className = mode === "edit" ? "on" : "";
@@ -270,6 +392,10 @@ function render(){
   const bar = document.getElementById("toolbar"); bar.innerHTML = "";
   const main = document.getElementById("main"); main.innerHTML = "";
 
+  if(!dataLoaded){
+    const p = document.createElement("div"); p.className = "empty"; p.textContent = "読み込み中…";
+    main.appendChild(p); return;
+  }
   if(!s){
     const blank = document.createElement("div"); blank.className = "card blank";
     const p = document.createElement("p"); p.textContent = "まだ科目がありません。勉強したい内容を追加してください。";
@@ -293,7 +419,8 @@ function render(){
   if(mode === "edit"){
     bar.appendChild(mkBtn("選択を隠す", wrapSelection));
     const grow = document.createElement("div"); grow.className = "grow"; bar.appendChild(grow);
-    const tag = document.createElement("span"); tag.className = "saved"; tag.id = "savedTag"; tag.textContent = "保存済み"; bar.appendChild(tag);
+    const tag = document.createElement("span"); tag.className = "saved ok"; tag.id = "savedTag";
+    tag.innerHTML = '<span class="sdot"></span>保存済み'; bar.appendChild(tag);
 
     const card = document.createElement("div"); card.className = "card";
     const ta = document.createElement("textarea"); ta.className = "editor"; ta.id = "editor";
@@ -303,7 +430,7 @@ function render(){
     card.appendChild(ta); main.appendChild(card);
 
     const hint = document.createElement("div"); hint.className = "hint";
-    hint.innerHTML = '隠したい語句を <code>==語句==</code> で囲む（選択して「選択を隠す」でもOK）。行頭 <code># </code> で見出し。自動保存されます。';
+    hint.innerHTML = '隠したい語句を <code>==語句==</code> で囲む（選択して「選択を隠す」でもOK）。行頭 <code># </code> で見出し。変更は自動でクラウド保存されます。';
     main.appendChild(hint);
   } else {
     bar.appendChild(mkBtn("全部表示 / 隠す", toggleAll));
