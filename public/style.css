@@ -1,6 +1,6 @@
 :root{
   --paper:#F6F7F9; --card:#FFFFFF; --ink:#1C2530; --muted:#6B7684;
-  --line:#E4E8EE; --teal:#0F766E; --teal-soft:#E7F1EF; --cover:#2C3742;
+  --line:#E4E8EE; --teal:#0F766E; --teal-soft:#E7F1EF; --cover:#8FD9A8;
   --amber:#FCE9B8; --amber-line:#E9C767;
   /* 文字色 */
   --c-red:#D23B36; --c-blue:#2563C9; --c-green:#1E874B; --c-orange:#C7710E;
@@ -91,8 +91,8 @@ textarea.editor{ width:100%; min-height:340px; border:0; resize:vertical; paddin
 .doc .h2:first-child{ margin-top:2px; }
 .doc .line{ margin:2px 0; }
 .mark{ display:inline-block; border-radius:6px; cursor:pointer; user-select:none; padding:1px 8px; margin:0 1px; transition:background .15s,color .15s; }
-.mark.hide{ background:var(--cover); color:transparent !important; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06); }
-.mark.hide:hover{ background:#39485A; }
+.mark.hide{ background:var(--cover); color:transparent !important; box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); }
+.mark.hide:hover{ background:#7BCB98; }
 .mark.show{ background:var(--amber); box-shadow:inset 0 -2px 0 var(--amber-line); }
 
 /* colored text */
